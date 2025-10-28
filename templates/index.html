@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard FIWARE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
+
+  <!-- Placar -->
+  <div class="w-full max-w-4xl bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div class="flex flex-col items-center">
+      <span id="scoreA" class="text-5xl font-bold text-blue-400"></span>
+      <span class="uppercase text-gray-400 font-semibold text-lg mt-1">Time A</span>
+    </div>
+
+    <div class="text-6xl sm:text-8xl font-extrabold text-gray-300">X</div>
+
+    <div class="flex flex-col items-center">
+      <span id="scoreB" class="text-5xl font-bold text-red-400"></span>
+      <span class="uppercase text-gray-400 font-semibold text-lg mt-1">Time B</span>
+    </div>
+  </div>
+
+  <!-- Título -->
+  <h2 class="mt-8 text-xl sm:text-2xl md:text-3xl font-bold text-center uppercase tracking-wide text-blue-300">
+    Dashboard de Engajamento
+  </h2>
+
+  <!-- Gráfico -->
+  <div class="w-full max-w-5xl bg-gray-800 p-4 mt-6 rounded-2xl shadow-lg">
+    <canvas id="graficoEngajamento" class="w-full h-64 sm:h-80 md:h-96"></canvas>
+  </div>
+
+  <!-- Script JS -->
+  <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+
+</body>
+</html>
