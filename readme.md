@@ -100,3 +100,54 @@ sudo docker-compose up -d
 ---
 
 ## Instalação e configuração do dashboard
+![Dashboard](./docs/Dashboard.png)
+
+1. Instalar dependências Python:
+```sh
+pip install -r requirements.txt
+```
+
+2. Criar arquivo de serviço:
+```sh
+sudo nano /etc/systemd/system/dashboard.service
+```
+
+3. Conteúdo do serviço:
+- Substitua o **user** pelo seu usuario
+
+```sh
+[Unit]
+Description=Dashboard Flask Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/<user>/sprint4-Edge/dashboard.py
+WorkingDirectory=/home/<user>/sprint4-Edge
+Restart=always
+RestartSec=5
+User=<user>
+Environment=PYTHONUNBUFFERED=1
+Environment=FLASK_ENV=production
+StandardOutput=append:/home/<user>/sprint4-Edge/dashboard.log
+StandardError=append:/home/<user>/sprint4-Edge/dashboard_error.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+4. Ativar e iniciar o serviço:
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable dashboard.service
+sudo systemctl start dashboard.service
+sudo systemctl status dashboard.service
+```
+
+5. Parar ou reiniciar:
+```sh
+sudo systemctl stop dashboard.service
+sudo systemctl restart dashboard.service
+```
+
+6. Acesse o dashboard web:
+- http://<IP DA VM>:5000
