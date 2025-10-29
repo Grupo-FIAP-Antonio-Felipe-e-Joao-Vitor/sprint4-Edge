@@ -150,4 +150,4 @@ sudo systemctl restart dashboard.service
 ```
 
 6. Acesse o dashboard web:
-- http://<IP DA VM>:5000
+- http://**IP DA VM**:5000
