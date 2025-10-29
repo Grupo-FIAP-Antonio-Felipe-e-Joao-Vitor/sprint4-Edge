@@ -1,94 +1,106 @@
-//Autores: Antônio Jacinto de Andrade Neto (RM: 561777), Felipe Bicaletto (RM: 563524), João Vitor dos Santos Pereira (RM: 551695) e Thayná Pereira Simões (RM: 566456) 
-//Resumo: Programa para criar um placar eletrônico com ESP32, 4 botões físicos, MQTT e LCD I2C.
+// ------------------------------------------------------------
+// Autores: Antônio Jacinto de Andrade Neto (RM: 561777), 
+//          Felipe Bicaletto (RM: 563524), 
+//          João Vitor dos Santos Pereira (RM: 551695), 
+//          Thayná Pereira Simões (RM: 566456)
+// 
+// Descrição: O sistema exibe o placar de dois times (A e B) em um display LCD,
+// permitindo incrementar ou decrementar o placar via botões físicos.
+// Também mede o "engajamento" de cada torcida com sensores de som (simulados usando potenciometros) e envia
+// todas as informações para um broker MQTT.
+// ------------------------------------------------------------
 
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-// ---------------- Configurações editáveis ----------------
-const char* SSID = "Wokwi-GUEST";  // Nome da rede Wifi
-const char* PASSWORD = "";  // Senha da rede Wifi
-const char* BROKER_MQTT = "20.46.254.134";  // IP do broker
-const int BROKER_PORT = 1883;  // Porta do Broker
-const char* TOPICO_PUBLISH_SCORE_A = "/TEF/hosp001/attrs/scoreA";  // Tópico de envio do placar
-const char* TOPICO_PUBLISH_SCORE_B = "/TEF/hosp001/attrs/scoreB";  // Tópico de envio do placar
+// ---------------- Configurações de rede e MQTT ----------------
+const char* SSID = "Wokwi-GUEST";            // Nome da rede Wi-Fi
+const char* PASSWORD = "";                   // Senha da rede Wi-Fi
+const char* BROKER_MQTT = "20.46.254.134";   // Endereço IP do broker MQTT
+const int BROKER_PORT = 1883;                // Porta do broker MQTT
 
-const char* TOPICO_PUBLISH_ENGAJAMENTO_A = "/TEF/hosp001/attrs/engajamentoA";  // Tópico de envio do placar
-const char* TOPICO_PUBLISH_ENGAJAMENTO_B = "/TEF/hosp001/attrs/engajamentoB";  // Tópico de envio do placar
+// Tópicos MQTT de publicação
+const char* TOPICO_PUBLISH_SCORE_A = "/TEF/hosp001/attrs/scoreA";
+const char* TOPICO_PUBLISH_SCORE_B = "/TEF/hosp001/attrs/scoreB";
+const char* TOPICO_PUBLISH_ENGAJAMENTO_A = "/TEF/hosp001/attrs/engajamentoA";
+const char* TOPICO_PUBLISH_ENGAJAMENTO_B = "/TEF/hosp001/attrs/engajamentoB";
 
-const char* ID_MQTT = "fiware_001";  // ID do MQTT
+const char* ID_MQTT = "fiware_001";          // ID de identificação do cliente MQTT
 
-// ---------------- Botões ----------------
-#define BTN_A_PLUS 25  // Pino do botão que adiciona score no time A
-#define BTN_A_MINUS 26  // Pino do botão que remove score no time A
-#define BTN_B_PLUS 27  // Pino do botão que adiciona score no time B
-#define BTN_B_MINUS 14  //Pino d botão que remove score no time B
+// ---------------- Definição dos botões ----------------
+#define BTN_A_PLUS 25   // Botão: adiciona ponto ao time A
+#define BTN_A_MINUS 26  // Botão: remove ponto do time A
+#define BTN_B_PLUS 27   // Botão: adiciona ponto ao time B
+#define BTN_B_MINUS 14  // Botão: remove ponto do time B
 
-#define somA 32
-#define somB 33
+// ---------------- Definição dos sensores de som ----------------
+#define somA 32          // Sensor de som do time A
+#define somB 33          // Sensor de som do time B
 
-// ---------------- Objetos ----------------
-LiquidCrystal_I2C lcd(0x27, 16, 2);  // Objeto LCD
-WiFiClient espClient;  // Objeto Wifi
-PubSubClient MQTT(espClient);  // Objeto MQTT
+// ---------------- Criação de objetos ----------------
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // LCD I2C (endereço 0x27, 16 colunas, 2 linhas)
+WiFiClient espClient;                 // Cliente Wi-Fi
+PubSubClient MQTT(espClient);         // Cliente MQTT
 
-byte micA[8] = {B00000, B00011, B01101, B10001, B10001, B01101, B00011, B00000};
-byte micB[8] = {B00000, B11000, B10110, B10001, B10001, B10110, B11000, B00000};
+// ---------------- Ícones personalizados para o LCD ----------------
+byte micA[8]      = {B00000, B00011, B01101, B10001, B10001, B01101, B00011, B00000};
+byte micB[8]      = {B00000, B11000, B10110, B10001, B10001, B10110, B11000, B00000};
 
 byte somBaixoA[8] = {B00000, B00000, B01000, B00100, B00100, B01000, B00000, B00000};
 byte somMedioA[8] = {B00000, B01000, B00100, B00100, B00100, B00100, B01000, B00000};
-byte somAltoA[8] = {B01000, B00100, B00010, B00010, B00010, B00010, B00100, B01000};
+byte somAltoA[8]  = {B01000, B00100, B00010, B00010, B00010, B00010, B00100, B01000};
 
 byte somBaixoB[8] = {B00000, B00000, B00010, B00100, B00100, B00010, B00000, B00000};
 byte somMedioB[8] = {B00000, B00010, B00100, B00100, B00100, B00100, B00010, B00000};
-byte somAltoB[8] = {B00010, B00100, B01000, B01000, B01000, B01000, B00100, B00010};
+byte somAltoB[8]  = {B00010, B00100, B01000, B01000, B01000, B01000, B00100, B00010};
 
-// ---------------- Placar ----------------
-int scoreA = 0;  // Score do time A
-int scoreB = 0;  //Score do time B
+// ---------------- Variáveis do placar ----------------
+int scoreA = 0;  // Pontuação do time A
+int scoreB = 0;  // Pontuação do time B
 
-// ---------------- Funções ----------------
+// ---------------- Funções auxiliares ----------------
 
-// Inicia monitor serial
+// Inicializa a comunicação serial
 void initSerial() {
   Serial.begin(115200);
 }
 
-// Inicia conexão wifi
+// Conecta o ESP32 à rede Wi-Fi
 void initWiFi() {
-  Serial.println("------ Conexao WiFi ------");
+  Serial.println("------ Conectando ao Wi-Fi ------");
   WiFi.begin(SSID, PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nWiFi conectado!");
-  Serial.print("IP: ");
+  Serial.println("\nWi-Fi conectado!");
+  Serial.print("Endereço IP: ");
   Serial.println(WiFi.localIP());
 }
 
-// Inicia conexão com MQTT Broker
+// Configura o cliente MQTT
 void initMQTT() {
   MQTT.setServer(BROKER_MQTT, BROKER_PORT);
 }
 
-// Reconecta ao MQTT
+// Tenta reconectar ao broker MQTT caso a conexão seja perdida
 void reconnectMQTT() {
   while (!MQTT.connected()) {
     Serial.print("Tentando conectar ao Broker MQTT...");
     if (MQTT.connect(ID_MQTT)) {
-      Serial.println("Conectado!");
+      Serial.println("Conectado ao broker!");
     } else {
-      Serial.print("Falhou, rc=");
-      Serial.print(MQTT.state());
-      Serial.println(" tentando novamente em 2s");
+      Serial.print("Falha na conexão. Código de erro: ");
+      Serial.println(MQTT.state());
+      Serial.println("Tentando novamente em 2 segundos...");
       delay(2000);
     }
   }
 }
 
-// Verifica conexão wifi e conexão com MQTT Broker
+// Garante que Wi-Fi e MQTT estão conectados
 void VerificaConexoesWiFIEMQTT() {
   if (!MQTT.connected()) {
     reconnectMQTT();
@@ -98,23 +110,21 @@ void VerificaConexoesWiFIEMQTT() {
   }
 }
 
+// Detecta o nível de som (engajamento) do time A (0 a 100)
 int detectarEngajamentoA() {
   int valorSomA = analogRead(somA);
-  int engajamentoA = map(valorSomA, 0, 4095, 0, 100);
-
-  return engajamentoA;
+  return map(valorSomA, 0, 4095, 0, 100);
 }
 
+// Detecta o nível de som (engajamento) do time B (0 a 100)
 int detectarEngajamentoB() {
   int valorSomB = analogRead(somB);
-  int engajamentoB = map(valorSomB, 0, 4095, 0, 100);
-  return engajamentoB;
+  return map(valorSomB, 0, 4095, 0, 100);
 }
 
-// Mostra o placar no display LCD
+// Atualiza o display LCD com o placar e o nível de engajamento
 void mostrarPlacar() {
-
-  // Linha superior: Placar
+  // Linha superior: mostra o placar
   lcd.setCursor(4, 0);
   lcd.print("A ");
   lcd.print(scoreA);
@@ -122,12 +132,11 @@ void mostrarPlacar() {
   lcd.print(scoreB);
   lcd.print(" B");
 
-  // Detecta o som dos dois times
+  // Calcula o engajamento dos dois times
   int engA = detectarEngajamentoA();
   int engB = detectarEngajamentoB();
 
-  // Linha inferior: Engajamento
-  // Time A (lado esquerdo)
+  // Linha inferior: barras de engajamento do time A
   lcd.setCursor(0, 1);
   lcd.write(byte(0)); // Ícone do microfone A
 
@@ -150,7 +159,7 @@ void mostrarPlacar() {
     lcd.print("   "); // Nenhum som
   }
 
-  // Time B (lado direito)
+  // Linha inferior: barras de engajamento do time B
   lcd.setCursor(15, 1);
   lcd.write(byte(1)); // Ícone do microfone B
   
@@ -162,7 +171,7 @@ void mostrarPlacar() {
     lcd.setCursor(14, 1);
     lcd.write(byte(5)); // somBaixoB
     lcd.write(byte(6)); // somMedioB
-    lcd.print(" "); 
+    lcd.print(" ");
   } else if (engB > 70) {
     lcd.setCursor(14, 1);
     lcd.write(byte(5)); // somBaixoB
@@ -173,46 +182,51 @@ void mostrarPlacar() {
   }
 }
 
+// ---------------- Funções de publicação MQTT ----------------
+
+// Publica a pontuação do time A
 void publicarScoreA() {
- String mensagem = String(scoreA);
- Serial.print("Valor do scoreA: ");
- Serial.println(mensagem.c_str());
- MQTT.publish(TOPICO_PUBLISH_SCORE_A, mensagem.c_str());
+  String mensagem = String(scoreA);
+  Serial.print("Publicando score A: ");
+  Serial.println(mensagem);
+  MQTT.publish(TOPICO_PUBLISH_SCORE_A, mensagem.c_str());
 }
 
+// Publica a pontuação do time B
 void publicarScoreB() {
- String mensagem = String(scoreB);
- Serial.print("Valor do scoreB: ");
- Serial.println(mensagem.c_str());
- MQTT.publish(TOPICO_PUBLISH_SCORE_B, mensagem.c_str());
+  String mensagem = String(scoreB);
+  Serial.print("Publicando score B: ");
+  Serial.println(mensagem);
+  MQTT.publish(TOPICO_PUBLISH_SCORE_B, mensagem.c_str());
 }
 
+// Publica o nível de engajamento do time A
 void publicarEngajamentoA() {
- int engj = detectarEngajamentoA();
- String mensagem = String(engj);
- Serial.print("Valor do engajamento A: ");
- Serial.println(mensagem.c_str());
- MQTT.publish(TOPICO_PUBLISH_ENGAJAMENTO_A, mensagem.c_str());
+  int engj = detectarEngajamentoA();
+  String mensagem = String(engj);
+  Serial.print("Publicando engajamento A: ");
+  Serial.println(mensagem);
+  MQTT.publish(TOPICO_PUBLISH_ENGAJAMENTO_A, mensagem.c_str());
 }
 
+// Publica o nível de engajamento do time B
 void publicarEngajamentoB() {
- int engj = detectarEngajamentoB();
- String mensagem = String(engj);
- Serial.print("Valor do engajamento B: ");
- Serial.println(mensagem.c_str());
- MQTT.publish(TOPICO_PUBLISH_ENGAJAMENTO_B, mensagem.c_str());
+  int engj = detectarEngajamentoB();
+  String mensagem = String(engj);
+  Serial.print("Publicando engajamento B: ");
+  Serial.println(mensagem);
+  MQTT.publish(TOPICO_PUBLISH_ENGAJAMENTO_B, mensagem.c_str());
 }
 
-// Publica gols do time A e gols do time B no tópico definido
+// Publica todos os dados (placar e engajamento)
 void publicar() {
   publicarScoreA();
   publicarEngajamentoA();
-
   publicarScoreB();
   publicarEngajamentoB();
 }
 
-// Função que é executada no início
+// ---------------- Setup e Loop principal ----------------
 void setup() {
   Wire.begin(21, 22);
   lcd.init();
@@ -222,18 +236,18 @@ void setup() {
   initWiFi();
   initMQTT();
 
+  // Configura os pinos dos botões com pull-up interno
   pinMode(BTN_A_PLUS, INPUT_PULLUP);
   pinMode(BTN_A_MINUS, INPUT_PULLUP);
   pinMode(BTN_B_PLUS, INPUT_PULLUP);
   pinMode(BTN_B_MINUS, INPUT_PULLUP);
 
+  // Cria os ícones personalizados no LCD
   lcd.createChar(0, micA);
   lcd.createChar(1, micB);
-
   lcd.createChar(2, somBaixoA);
   lcd.createChar(3, somMedioA);
   lcd.createChar(4, somAltoA);
-  
   lcd.createChar(5, somBaixoB);
   lcd.createChar(6, somMedioB);
   lcd.createChar(7, somAltoB);
@@ -241,16 +255,15 @@ void setup() {
   mostrarPlacar();
 }
 
-// Função que fica rodando durante a aplicação
 void loop() {
-  // Verifica conexões (descomente quando estiver usando MQTT real)
+  // Garante que Wi-Fi e MQTT estejam sempre conectados
   VerificaConexoesWiFIEMQTT();
   MQTT.loop();
 
-  // Atualiza o display com o nível de som em tempo real
+  // Atualiza o display com o placar e engajamento
   mostrarPlacar();
 
-  // Lógica dos botões
+  // Lógica dos botões para controle do placar
   if (digitalRead(BTN_A_PLUS) == LOW) {
     scoreA++;
     delay(500);
@@ -271,7 +284,8 @@ void loop() {
     delay(500);
   }
 
+  // Publica os dados no broker MQTT
   publicar();
 
-  delay(300); // Atualiza o LCD a cada 300ms
+  delay(300); // Atualiza o sistema a cada 300ms
 }
