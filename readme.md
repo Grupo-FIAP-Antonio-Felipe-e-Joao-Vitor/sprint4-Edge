@@ -37,7 +37,8 @@ O dashboard web, desenvolvido em Flask, Tailwind CSS e Chart.js, exibe o placar 
 - ESP32 controla o placar do jogo (por meio de quatro botões, que servem para adicionar e retirar pontos dos times) e coleta dados de som de ambas as torcidas (sensor sonoro simulado usando potenciometros) e exibe tudo em um **display LCD**
 - MQTT distribui os dados para o FIWARE IoT Agent, que registra os valores históricos.
 - Dashboard em Flask consulta o STH-Comet para exibir o gráfico de engajamento e o placar.
-Link da Simulação Wokwi: 
+
+Link da Simulação Wokwi: https://wokwi.com/projects/441797974384439297
 
 ---
 ## Manual de instalaçõ em uma VM (Ubuntu Server)
