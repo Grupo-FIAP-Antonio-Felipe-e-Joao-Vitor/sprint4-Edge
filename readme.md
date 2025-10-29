@@ -48,7 +48,7 @@ Link da Simulação Wokwi: https://wokwi.com/projects/441797974384439297
 - Pip instalado
 - Porta 5000 liberada no firewall
 
-### 2️. Clonar o projeto e subir docker
+### 2️. Clonar o projeto
 ```sh
 git clone https://github.com/Grupo-FIAP-Antonio-Felipe-e-Joao-Vitor/sprint4-Edge.git
 cd sprint4-Edge
